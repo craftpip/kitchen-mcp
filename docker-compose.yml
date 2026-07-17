@@ -1,0 +1,18 @@
+services:
+  kitchen-mcp:
+    build: .
+    container_name: kitchen-mcp
+    ports:
+      - "3100:3100"
+    environment:
+      - KITCHEN_PORT=3100
+      - KITCHEN_HTTP=1
+    volumes:
+      - ./src:/app/src
+      - ./tsconfig.json:/app/tsconfig.json
+      - kitchen-data:/app/data
+    command: ["npx", "tsx", "src/index.ts", "--http"]
+    restart: unless-stopped
+
+volumes:
+  kitchen-data:
