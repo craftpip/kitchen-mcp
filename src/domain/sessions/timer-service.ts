@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { generateId } from '../../shared/ids.js';
 import { kitchenError, ErrorCode } from '../../shared/errors/catalogue.js';
+import { timerExpiredNotification } from '../../infrastructure/notifications/ntfy.js';
 import type { KitchenTimer, TimerType, TimerStatus, CreateTimerInput } from './types.js';
 
 interface TimerRow {
@@ -218,6 +219,11 @@ export class TimerService {
           )
           .run(generateId('evt'), timer.session_id, JSON.stringify({ timer_id: timer.timer_id, name: timer.name }));
       }
+
+      const sessionRow = timer.session_id
+        ? this.db.prepare('SELECT name FROM cooking_sessions WHERE session_id = ?').get(timer.session_id) as { name: string } | undefined
+        : undefined;
+      timerExpiredNotification(timer.name, Math.round(timer.duration_seconds / 60), sessionRow?.name);
     }
 
     return expired.map((row) => rowToTimer(row as TimerRow));

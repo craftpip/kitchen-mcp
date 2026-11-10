@@ -6,11 +6,13 @@ import { migration003 } from './migrations/003_phase2_equipment_measurements.js'
 import { migration004 } from './migrations/004_phase3_recipes.js';
 import { migration005 } from './migrations/005_phase4_restrictions_preferences.js';
 import { migration006 } from './migrations/006_phase5_cooking_sessions.js';
+import { migration007 } from './migrations/007_phase8_shopping.js';
+import { migration008 } from './migrations/008_phase8_meal_planning.js';
 import { createChildLogger } from '../logging.js';
 
 const log = createChildLogger('migrations');
 
-const migrations = [migration001, migration002, migration003, migration004, migration005, migration006];
+const migrations = [migration001, migration002, migration003, migration004, migration005, migration006, migration007, migration008];
 
 export function getAppliedMigrations(db: Database.Database): number[] {
   const tableExists = db

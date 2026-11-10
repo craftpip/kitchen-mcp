@@ -19,6 +19,8 @@ import { registerPreferenceTools } from './tools/preferences.js';
 import { registerMatchingTools } from './tools/matching.js';
 import { registerSessionTools } from './tools/sessions.js';
 import { registerTimerTools } from './tools/timers.js';
+import { registerShoppingTools } from './tools/shopping.js';
+import { registerMealPlanningTools } from './tools/mealplanning.js';
 import { createChildLogger } from '../infrastructure/logging.js';
 
 const log = createChildLogger('server');
@@ -50,6 +52,8 @@ export function createServer(): McpServer {
   registerMatchingTools(ctx);
   registerSessionTools(ctx);
   registerTimerTools(ctx);
+  registerShoppingTools(ctx);
+  registerMealPlanningTools(ctx);
 
   return mcpServer;
 }

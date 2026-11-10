@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { generateId } from '../../shared/ids.js';
 import { kitchenError, ErrorCode } from '../../shared/errors/catalogue.js';
 import { writeAuditLog } from '../../infrastructure/audit.js';
+import { sessionCompleteNotification, sessionAbandonedNotification, problemReportedNotification } from '../../infrastructure/notifications/ntfy.js';
 import type {
   CookingSession,
   SessionStep,
@@ -526,6 +527,8 @@ export class SessionService {
       )
       .all(session.recipe_version_id, input.problem_type);
 
+    problemReportedNotification(session.name, input.problem_type, input.description);
+
     return { problem_type: input.problem_type, recovery_rules: recoveryRules };
   }
 
@@ -611,6 +614,8 @@ export class SessionService {
       operation: 'complete',
     });
 
+    sessionCompleteNotification(session.name, Math.round((duration ?? 0) / 60));
+
     return this.get(sessionId)!;
   }
 
@@ -643,6 +648,8 @@ export class SessionService {
       entity_id: sessionId,
       operation: 'abandon',
     });
+
+    sessionAbandonedNotification(session.name);
 
     return this.get(sessionId)!;
   }

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Kitchen MCP — a local-first Model Context Protocol server that gives an external LLM structured kitchen knowledge and controlled kitchen operations. Inventory, recipes, equipment, cooking sessions, timers, restrictions, preferences, and recipe matching. The server is the source of truth for all kitchen state — the LLM never is.
+Kitchen MCP — a local-first Model Context Protocol server that gives an external LLM structured kitchen knowledge and controlled kitchen operations. Inventory, recipes, equipment, cooking sessions, timers, restrictions, preferences, shopping lists, meal plans, recipe matching, and push notifications. The server is the source of truth for all kitchen state — the LLM never is.
 
 ## Commands
 
@@ -36,7 +36,9 @@ kitchen-mcp/
 │   │       ├── preferences.ts      # preference CRUD + profile (3 tools)
 │   │       ├── matching.ts         # recipe match/scoring engine (1 tool)
 │   │       ├── sessions.ts         # cooking session lifecycle (15 tools)
-│   │       └── timers.ts           # kitchen timers (9 tools)
+│   │       ├── timers.ts           # kitchen timers (9 tools)
+│   │       ├── shopping.ts         # shopping list CRUD + generation (11 tools)
+│   │       └── mealplanning.ts     # meal plan CRUD + auto-generate (11 tools)
 │   ├── domain/
 │   │   ├── locations/              # service.ts, types.ts
 │   │   ├── ingredients/            # service.ts, types.ts
@@ -45,26 +47,39 @@ kitchen-mcp/
 │   │   ├── measurements/           # service.ts (unit conversion engine)
 │   │   ├── recipes/                # service.ts, types.ts
 │   │   ├── matching/               # service.ts, types.ts, restriction-service.ts, preference-service.ts
-│   │   └── sessions/               # service.ts, types.ts, timer-service.ts
+│   │   ├── sessions/               # service.ts, types.ts, timer-service.ts
+│   │   ├── shopping/               # service.ts, types.ts
+│   │   └── mealplanning/           # service.ts, types.ts
 │   ├── infrastructure/
 │   │   ├── database/
 │   │   │   ├── connection.ts       # SQLite WAL, FK, busy_timeout
-│   │   │   ├── migrate.ts          # 6 migrations
-│   │   │   └── migrations/         # 001–006
+│   │   │   ├── migrate.ts          # 8 migrations
+│   │   │   └── migrations/         # 001–008
 │   │   ├── audit.ts                # audit log write + query
 │   │   ├── idempotency.ts          # hash-based dedup with TTL
-│   │   └── logging.ts              # pino logger
+│   │   ├── logging.ts              # pino logger
+│   │   └── notifications/
+│   │       └── ntfy.ts             # ntfy.sh push notifications (fire-and-forget)
 │   └── shared/
 │       ├── response.ts             # {ok, status, code, data, warnings, ...} envelope
 │       ├── errors/catalogue.ts      # KitchenError + 35+ error codes
-│       ├── ids.ts                  # UUID-based IDs with prefixes (loc_, ing_, ilot_, etc.)
+│       ├── ids.ts                  # UUID-based IDs with prefixes (loc_, ing_, lot_, etc.)
 │       └── time.ts                 # UTC timestamp helpers
-├── tests/unit/                     # vitest tests (errors, response, ids)
+├── tests/
+│   ├── fixtures/
+│   │   └── db.ts                  # In-memory SQLite test helper with migrations + seeders
+│   └── unit/
+│       ├── errors.test.ts          # KitchenError + error codes
+│       ├── ids.test.ts             # UUID ID generation
+│       ├── response.test.ts        # success/error/confirmation envelope
+│       ├── shopping.test.ts        # ShoppingService (28 tests)
+│       └── mealplanning.test.ts    # MealPlanService (25 tests)
 ├── data/                           # kitchen.db (Docker volume mount)
 ├── Dockerfile                      # node:20, native deps
 ├── docker-compose.yml              # source mount, port 3100, kitchen-data volume
 ├── KITCHEN_MCP_ARCHITECTURE.md     # Full architecture spec (3300+ lines)
-└── AGENTS.md                       # This file
+├── AGENTS.md                       # This file
+└── SKILL.md                        # Agent skill guide for LLM consumption
 ```
 
 ## Project Rules
@@ -96,6 +111,10 @@ kitchen-mcp/
 - Each HTTP request creates a fresh MCP server + DB connection — no connection pooling or shared state between requests
 - Tests are minimal (only 3 test files: errors, response, ids)
 
+## Archived Decisions
+
+- Phase 9 (Safety Hardening) and Phase 10 (Optional Integrations) from KITCHEN_MCP_ARCHITECTURE.md §33 are archived and will not be implemented. Basic safety validation via restriction gateways in the matching service is sufficient.
+
 ## Fix Patterns
 
 - When adding new error codes, add them to `src/shared/errors/catalogue.ts` ErrorCode object — use `SESSION_STATE_CONFLICT` for session/timer state errors, `INVALID_STATE_TRANSITION` for timer state errors, `NOT_FOUND` for missing entities
@@ -104,6 +123,8 @@ kitchen-mcp/
 - `db.prepare().all()` returns `unknown[]` — map callbacks need explicit cast: `.map((row) => rowToFoo(row as FooRow))`
 - For Zod schemas on tool inputs, use `z.string().optional()` for optional params and `.describe()` on every field
 - Docker container uses source mount — only need `docker restart kitchen-mcp` after code changes, no rebuild unless package.json changes
+- Notifications are sent via `src/infrastructure/notifications/ntfy.ts` — fire-and-forget `fetch` POST, never awaited, silently skipped if `NTFY_TOPIC` env var is unset
+- When wiring notifications into sync services, call the async function with `.catch()` — never await it (notifications must never block kitchen operations)
 
 ## User Preferences
 
